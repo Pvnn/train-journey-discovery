@@ -1,0 +1,29 @@
+# Data
+data/raw/*.csv
+data/raw/*.json
+data/raw/*.xlsx
+data/processed/*.csv
+
+# Backend
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/venv/
+backend/env/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
