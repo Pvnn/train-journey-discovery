@@ -1,12 +1,12 @@
 # Project Setup Guide - Indian Railways Journey Planner
-## 📋 Prerequisites Installation
+## Prerequisites Installation
 
 ### 1. Install Python (3.11 preferred)
 
 **Windows:**
 1. Download Python from [https://www.python.org/downloads/](https://www.python.org/downloads/)
 2. Run the installer
-3. ✅ **IMPORTANT:** Check "Add Python to PATH" during installation
+3. **IMPORTANT:** Check "Add Python to PATH" during installation
 4. Click "Install Now"
 5. Verify installation:
    ```bash
@@ -40,7 +40,7 @@
 
 ***
 
-## 🚀 Project Setup
+## Project Setup
 
 ### Step 1: Clone the Repository
 
@@ -51,7 +51,7 @@ cd <project-folder-name>
 
 ***
 
-## 🐍 Backend Setup (Flask)
+## Backend Setup (Flask)
 
 ### Step 1: Navigate to Backend Directory
 ```bash
@@ -72,7 +72,7 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-✅ Your terminal prompt should now show `(venv)` at the beginning
+Your terminal prompt should now show `(venv)` at the beginning
 
 ### Step 3: Install Python Dependencies
 ```bash
@@ -121,13 +121,13 @@ You should see:
  * Debug mode: on
 ```
 
-✅ **Backend is now running on port 5000**[1]
+**Backend is now running on port 5000**[1]
 
 **Keep this terminal open and running!**
 
 ***
 
-## 🎨 Frontend Setup (Vue 3)
+## Frontend Setup (Vue 3)
 
 ### Step 1: Open a NEW Terminal
 Don't close the backend terminal! Open a new terminal window/tab.
@@ -158,7 +158,7 @@ You should see:
   ➜  Network: use --host to expose
 ```
 
-✅ **Frontend is now running on port 5173**[2]
+**Frontend is now running on port 5173**[2]
 
 ### Step 5: Open in Browser
 Open your browser and go to:
@@ -170,7 +170,7 @@ You should see the Vue app homepage!
 
 ***
 
-## 🧪 Testing the Setup
+## Testing the Setup
 
 ### Test 1: Backend Health Check with Postman Extension
 
@@ -201,7 +201,7 @@ You should see the Vue app homepage!
 }
 ```
 
-✅ If you see this, backend is working correctly!
+If you see this, backend is working correctly!
 
 #### Test Root Endpoint
 
@@ -226,11 +226,11 @@ Create another request:
 2. Open browser to `http://localhost:5173`
 3. You should see the default Vue welcome page with Vue logo
 
-✅ Frontend is working!
+Frontend is working!
 
 ***
 
-## 📁 Project Structure Overview
+## Project Structure Overview
 
 ```
 project-root/
@@ -251,7 +251,7 @@ project-root/
 
 ***
 
-## 🔧 Common Issues & Solutions
+## Common Issues & Solutions
 
 ### Issue 1: "Python not found" or "command not found"
 
@@ -303,7 +303,7 @@ venv\Scripts\activate
 
 ***
 
-## 🎯 Daily Workflow
+## Daily Workflow
 
 **Every time you start working:**
 
