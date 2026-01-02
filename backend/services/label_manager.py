@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 
 @dataclass
 class Label:
@@ -343,4 +344,82 @@ def reconstruct_path(
   )
   
   return journey
+
+def filter_routes_by_date(
+  routes_data: Dict[str, Any],
+  route_ids: List[str],
+  query_date: str
+) -> List[str]:
+  """
+  Filter a list of route IDs to only those running on the query date.
+  
+  Args:
+    routes_data: Dict[route_id -> route_info] from routes.json
+    route_ids: List of route IDs to filter
+    query_date: Date string in format 'YYYY-MM-DD' or datetime object
+    
+  Returns:
+    List of route IDs that run on the given date
+  """
+  # Parse query_date if string
+  if isinstance(query_date, str):
+    date_obj = datetime.strptime(query_date, '%Y-%m-%d')
+  elif isinstance(query_date, datetime):
+    date_obj = query_date
+  else:
+    raise ValueError(f"query_date must be string 'YYYY-MM-DD' or datetime object, got {type(query_date)}")
+  
+  # Get day of week from Python (Monday=0, Sunday=6)
+  python_day = date_obj.weekday()
+  
+  # Convert to Indian Railways format (Sunday=0, Monday=1, ..., Saturday=6)
+  # Python: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+  # Indian Railways: Sun=0, Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6
+  indian_railways_day = (python_day + 1) % 7
+  
+  # Filter routes
+  filtered_routes = []
+  for route_id in route_ids:
+    if route_id in routes_data:
+      route_info = routes_data[route_id]
+      running_days = route_info.get('running_days', '0000000')
+      
+      # Check if train runs on this day
+      if len(running_days) == 7 and running_days[indian_railways_day] == '1':
+        filtered_routes.append(route_id)
+  
+  return filtered_routes
+
+
+def check_route_runs_on_date(
+  route_info: Dict[str, Any],
+  query_date: str
+) -> bool:
+  """
+  Check if a single route runs on the given date.
+  
+  Args:
+    route_info: Route information dict containing 'running_days'
+    query_date: Date string in format 'YYYY-MM-DD' or datetime object
+    
+  Returns:
+    True if route runs on the date, False otherwise
+  """
+  # Parse query_date if string
+  if isinstance(query_date, str):
+    date_obj = datetime.strptime(query_date, '%Y-%m-%d')
+  elif isinstance(query_date, datetime):
+    date_obj = query_date
+  else:
+    raise ValueError(f"query_date must be string 'YYYY-MM-DD' or datetime object")
+  
+  # Get day of week and convert to Indian Railways format
+  python_day = date_obj.weekday()
+  indian_railways_day = (python_day + 1) % 7
+  
+  # Check running_days
+  running_days = route_info.get('running_days', '0000000')
+  if len(running_days) == 7:
+    return running_days[indian_railways_day] == '1'
+  return False
 
