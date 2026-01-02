@@ -423,3 +423,228 @@ def check_route_runs_on_date(
     return running_days[indian_railways_day] == '1'
   return False
 
+import json
+def format_time_hhmm(time_minutes: Optional[int]) -> str:
+  """
+  Convert time in minutes from midnight to HH:MM format.
+  
+  Args:
+    time_minutes: Time in minutes from midnight (can be > 1440 for next day)
+    
+  Returns:
+    Time string in HH:MM format
+  """
+  if time_minutes is None:
+    return "N/A"
+  
+  # Handle multi-day times
+  total_minutes = time_minutes % 1440
+  hours = total_minutes // 60
+  minutes = total_minutes % 60
+  
+  return f"{hours:02d}:{minutes:02d}"
+
+
+def calculate_segment_distance(
+  boarding_stop_id: int,
+  alighting_stop_id: int,
+  route_id: str,
+  stop_times_data: List[Dict[str, Any]]
+) -> float:
+  """
+  Calculate distance between two stops on a route.
+  This is a placeholder - actual implementation would use distance data.
+  
+  Args:
+    boarding_stop_id: Starting stop ID
+    alighting_stop_id: Ending stop ID
+    route_id: Route/train ID
+    stop_times_data: Stop times data
+    
+  Returns:
+    Distance in kilometers (estimated)
+  """
+  # Find stop sequences
+  boarding_seq = None
+  alighting_seq = None
+  
+  for st in stop_times_data:
+    if st['route_id'] == route_id:
+      if st['stop_id'] == boarding_stop_id:
+        boarding_seq = st['stop_sequence']
+      if st['stop_id'] == alighting_stop_id:
+        alighting_seq = st['stop_sequence']
+  
+  if boarding_seq is not None and alighting_seq is not None:
+    # Rough estimate: 50 km per stop difference
+    stop_diff = abs(alighting_seq - boarding_seq)
+    return stop_diff * 50.0
+  
+  return 0.0
+
+
+def calculate_segment_fare(
+  distance_km: float,
+  train_metadata: Dict[str, Any],
+  route_id: str
+) -> float:
+  """
+  Calculate fare for a segment based on distance and train class.
+  
+  Args:
+    distance_km: Distance in kilometers
+    train_metadata: Train metadata dictionary
+    route_id: Route/train ID
+    
+  Returns:
+    Fare amount in rupees
+  """
+  if route_id in train_metadata:
+    base_fare_per_km = train_metadata[route_id].get('base_fare_per_km', 0.5)
+    return distance_km * base_fare_per_km
+  
+  # Default fare if no metadata
+  return distance_km * 0.5
+
+
+def enrich_journey_segments(
+  journey: Journey,
+  stops_data: Dict[str, Any],
+  station_metadata: Dict[str, Any],
+  train_metadata: Dict[str, Any],
+  stop_times_data: List[Dict[str, Any]]
+) -> Journey:
+  """
+  Enrich journey segments with detailed metadata and formatted information.
+  
+  Args:
+    journey: Journey object with basic segments
+    stops_data: Dict[stop_code -> stop_info] from stops.json
+    station_metadata: Dict[stop_code -> station_info] from station_metadata.json
+    train_metadata: Dict[train_number -> train_info] from train_metadata.json
+    stop_times_data: List of stop_time records from stop_times.json
+    
+  Returns:
+    Enriched Journey object with full details
+  """
+  enriched_segments = []
+  total_fare = 0.0
+  total_distance = 0.0
+  
+  for i, segment in enumerate(journey.segments):
+    # Calculate distance and fare
+    distance = calculate_segment_distance(
+      segment['boarding_stop_id'],
+      segment['alighting_stop_id'],
+      segment['route_id'],
+      stop_times_data
+    )
+    
+    fare = calculate_segment_fare(
+      distance,
+      train_metadata,
+      segment['route_id']
+    )
+    
+    total_fare += fare
+    total_distance += distance
+    
+    # Format times
+    departure_formatted = format_time_hhmm(segment.get('departure_time'))
+    arrival_formatted = format_time_hhmm(segment.get('arrival_time'))
+    
+    # Get station metadata for boarding and alighting
+    boarding_code = segment.get('boarding_stop_code')
+    alighting_code = segment.get('alighting_stop_code')
+    
+    boarding_station_info = station_metadata.get(boarding_code, {})
+    alighting_station_info = station_metadata.get(alighting_code, {})
+    
+    # Build enriched segment
+    enriched_segment = {
+      **segment,  # Keep all original fields
+      'distance_km': round(distance, 2),
+      'fare': round(fare, 2),
+      'departure_time_formatted': departure_formatted,
+      'arrival_time_formatted': arrival_formatted,
+      'duration_formatted': f"{segment['duration']} min",
+      'boarding_station_zone': boarding_station_info.get('zone', 'N/A'),
+      'boarding_station_tier': boarding_station_info.get('tier', 'N/A'),
+      'alighting_station_zone': alighting_station_info.get('zone', 'N/A'),
+      'alighting_station_tier': alighting_station_info.get('tier', 'N/A')
+    }
+    
+    enriched_segments.append(enriched_segment)
+    
+    # Add transfer information between segments
+    if i < len(journey.segments) - 1:
+      next_segment = journey.segments[i + 1]
+      
+      # Transfer happens at current segment's alighting stop
+      transfer_stop_code = segment.get('alighting_stop_code')
+      transfer_station_info = station_metadata.get(transfer_stop_code, {})
+      
+      # Calculate transfer/buffer time
+      current_arrival = segment.get('arrival_time', 0) + (segment.get('arrival_day_offset', 0) * 1440)
+      next_departure = next_segment.get('departure_time', 0) + (next_segment.get('departure_day_offset', 0) * 1440)
+      transfer_buffer = next_departure - current_arrival
+      
+      # Get minimum transfer time from station metadata
+      min_transfer_time = transfer_station_info.get('min_transfer_time', 30)
+      
+      # Create transfer info object
+      transfer_info = {
+        'transfer_number': i + 1,
+        'station_code': transfer_stop_code,
+        'station_name': segment.get('alighting_stop_name'),
+        'station_zone': transfer_station_info.get('zone', 'N/A'),
+        'station_tier': transfer_station_info.get('tier', 'N/A'),
+        'station_category': transfer_station_info.get('category', 'N/A'),
+        'min_transfer_time': min_transfer_time,
+        'actual_buffer_time': transfer_buffer,
+        'buffer_sufficient': transfer_buffer >= min_transfer_time,
+        'previous_train': segment['train_number'],
+        'next_train': next_segment['train_number'],
+        'arrival_time': format_time_hhmm(segment.get('arrival_time')),
+        'departure_time': format_time_hhmm(next_segment.get('departure_time'))
+      }
+      
+      # Add transfer info to enriched segment
+      enriched_segment['transfer_after'] = transfer_info
+  
+  # Update journey with enriched segments and totals
+  journey.segments = enriched_segments
+  journey.total_fare = round(total_fare, 2)
+  
+  return journey
+
+
+def enrich_journey(
+  journey: Journey,
+  stops_data: Dict[str, Any],
+  station_metadata: Dict[str, Any],
+  train_metadata: Dict[str, Any],
+  stop_times_data: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+  """
+  Main enrichment function - enriches journey and returns as JSON dict.
+  
+  Args:
+    journey: Journey object to enrich
+    stops_data: Stops data
+    station_metadata: Station metadata
+    train_metadata: Train metadata
+    stop_times_data: Stop times data
+    
+  Returns:
+    Enriched journey as dictionary
+  """
+  enriched = enrich_journey_segments(
+    journey,
+    stops_data,
+    station_metadata,
+    train_metadata,
+    stop_times_data
+  )
+  
+  return enriched.to_dict()
