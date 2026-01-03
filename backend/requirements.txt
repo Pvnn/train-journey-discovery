@@ -1,4 +1,4 @@
 Flask
 Flask-CORS
-supabase
+marshmallow
 python-dateutil
