@@ -1,46 +1,54 @@
 <template>
-  <div class="journey-card">
+  <div class="journey-card" @click="goToDetails">
     <!-- Header -->
     <div class="header">
       <div>
-        <h3>{{ trainNumber }} – {{ trainName }}</h3>
-        <span class="subtitle">
-          {{ duration }} • {{ transfers }} transfer(s)
-        </span>
+        <strong>{{ trainNumber }}</strong>
+        <span class="train-name"> — {{ trainName }}</span>
       </div>
 
-      <span class="class-badge" :class="classColor">
+      <span class="class-badge" :class="trainClass.toLowerCase()">
         {{ trainClass }}
       </span>
     </div>
 
     <!-- Timeline -->
     <div class="timeline">
-      <div class="time-block">
-        <span class="time">{{ departureTime }}</span>
-        <span class="station">{{ departureStation }}</span>
+      <div class="station">
+        <div class="time">{{ departureTime }}</div>
+        <div class="code">{{ departureStation }}</div>
       </div>
 
-      <div class="line">
-        <span class="dot"></span>
-        <span class="rail"></span>
-        <span class="dot"></span>
-      </div>
+      <div class="arrow">→</div>
 
-      <div class="time-block">
-        <span class="time">{{ arrivalTime }}</span>
-        <span class="station">{{ arrivalStation }}</span>
+      <div class="station">
+        <div class="time">{{ arrivalTime }}</div>
+        <div class="code">{{ arrivalStation }}</div>
       </div>
+    </div>
+
+    <!-- Meta -->
+    <div class="meta">
+      <span>⏱ {{ duration }}</span>
+      <span>🔁 {{ transfers }} transfer(s)</span>
     </div>
 
     <!-- Footer -->
     <div class="footer">
       <div class="price">
         ₹{{ fare }}
-        <span class="comfort">Comfort {{ comfortScore }}/5</span>
+        <div class="stars">
+          <span
+            v-for="i in 5"
+            :key="i"
+            :class="{ filled: i <= comfortScore }"
+          >
+            ★
+          </span>
+        </div>
       </div>
 
-      <button class="details-btn" @click="viewDetails">
+      <button class="view-btn" @click.stop="goToDetails">
         View Details
       </button>
     </div>
@@ -48,7 +56,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { useRouter } from "vue-router";
 
 const props = defineProps({
   trainNumber: String,
@@ -64,37 +72,28 @@ const props = defineProps({
   comfortScore: Number,
 });
 
-/* emit event */
-const emit = defineEmits(["view-details"]);
+const router = useRouter();
 
-const viewDetails = () => {
-  emit("view-details", {
-    trainNumber: props.trainNumber,
-  });
+const goToDetails = () => {
+  router.push(`/journey/${props.trainNumber}`);
 };
-
-/* class color coding */
-const classColor = computed(() => {
-  if (props.trainClass === "AC") return "ac";
-  if (props.trainClass === "Sleeper") return "sleeper";
-  return "general";
-});
 </script>
 
 <style scoped>
-/* Card */
 .journey-card {
   background: #ffffff;
-  border-radius: 16px;
-  padding: 1.25rem;
-  margin-bottom: 1.25rem;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 18px;
+  padding: 1.6rem;
+  margin-bottom: 1.6rem;
+  border: 1px solid #eee;
+  cursor: pointer;
+
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .journey-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
 }
 
 /* Header */
@@ -102,59 +101,81 @@ const classColor = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 1rem;
 }
 
-.header h3 {
-  margin: 0;
+.train-name {
+  color: #555;
+  font-weight: 500;
+}
+
+/* Badge */
+.class-badge {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.class-badge.ac {
+  background: #e6f0ff;
   color: #0066cc;
 }
 
-.subtitle {
-  font-size: 0.85rem;
-  color: #666;
+.class-badge.sleeper {
+  background: #fff1e6;
+  color: #ff7a00;
+}
+
+.class-badge.general {
+  background: #f0f0f0;
+  color: #555;
 }
 
 /* Timeline */
 .timeline {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   margin: 1.2rem 0;
 }
 
-.time-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.station {
+  text-align: center;
 }
 
 .time {
-  font-weight: bold;
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 
-.station {
-  font-size: 0.85rem;
-  color: #555;
+.code {
+  font-size: 0.8rem;
+  color: #666;
 }
 
-.line {
-  flex: 1;
+.arrow {
+  font-size: 1.4rem;
+  color: #0066cc;
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Meta */
+.meta {
   display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rail {
-  height: 2px;
-  width: 100%;
-  background: #ccc;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  background: #0066cc;
-  border-radius: 50%;
+  gap: 1.2rem;
+  font-size: 0.85rem;
+  color: #666;
 }
 
 /* Footer */
@@ -162,65 +183,36 @@ const classColor = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 1.2rem;
 }
 
 .price {
+  font-weight: 700;
   font-size: 1.1rem;
-  font-weight: bold;
 }
 
-.comfort {
-  display: block;
-  font-size: 0.75rem;
-  color: #777;
+.stars {
+  font-size: 0.85rem;
+  color: #ddd;
 }
 
-.details-btn {
+.stars .filled {
+  color: #ff9f1c;
+}
+
+/* Button */
+.view-btn {
   background: #0066cc;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-/* Class badge */
-.class-badge {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 20px;
-}
-
-.ac {
-  background: #0066cc;
-  color: white;
-}
-
-.sleeper {
-  background: #ff9933;
-  color: white;
-}
-
-.general {
-  background: #999;
-  color: white;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-  .timeline {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .line {
-    width: 100%;
-  }
-
-  .footer {
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-start;
-  }
+.view-btn:hover {
+  background: #0052a3;
 }
 </style>
