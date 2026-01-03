@@ -1,7 +1,5 @@
 <template>
-  <ResultsView />
+  <router-view />
 </template>
 
-<script setup>
-import ResultsView from "./views/ResultsView.vue";
-</script>
+<script setup></script>

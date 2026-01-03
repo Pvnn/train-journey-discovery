@@ -1,126 +1,153 @@
 <template>
-  <div class="search-container">
-    <form class="search-card" @submit.prevent="handleSearch">
-      <h2>Search Train Journeys</h2>
-
-      <div class="row">
-        <input v-model="origin" type="text" placeholder="Origin Station" />
-        <button type="button" class="swap" @click="swapStations">⇄</button>
+  <form class="search-form" @submit.prevent="submit">
+    <!-- FROM / TO -->
+    <div class="field-row">
+      <div class="field">
+        <label>From</label>
         <input
-          v-model="destination"
+          v-model="origin"
           type="text"
-          placeholder="Destination Station"
+          placeholder="City or station"
+          required
         />
       </div>
 
-      <input v-model="date" type="date" />
-      <input v-model="time" type="time" />
+      <button type="button" class="swap" @click="swap">⇄</button>
 
-      <p v-if="error" class="error">{{ error }}</p>
+      <div class="field">
+        <label>To</label>
+        <input
+          v-model="destination"
+          type="text"
+          placeholder="City or station"
+          required
+        />
+      </div>
+    </div>
 
-      <button type="submit" class="search-btn">Search</button>
-    </form>
-  </div>
+    <!-- DATE / TIME -->
+    <div class="field-row">
+      <div class="field">
+        <label>Date</label>
+        <input v-model="date" type="date" required />
+      </div>
+
+      <div class="field">
+        <label>Time</label>
+        <input v-model="time" type="time" />
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <button class="submit-btn" type="submit">
+      Search train journeys
+    </button>
+  </form>
 </template>
 
 <script setup>
 import { ref } from "vue";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 
 const origin = ref("");
 const destination = ref("");
 const date = ref("");
 const time = ref("");
-const error = ref("");
 
-const emit = defineEmits(["search"]);
-
-function swapStations() {
+const swap = () => {
   [origin.value, destination.value] = [
     destination.value,
     origin.value,
   ];
-}
+};
 
-function handleSearch() {
-  error.value = "";
-
-  if (!origin.value || !destination.value || !date.value) {
-    error.value = "All fields are required";
-    return;
-  }
-
-  if (origin.value === destination.value) {
-    error.value = "Origin and destination cannot be same";
-    return;
-  }
-
-  const today = new Date().toISOString().split("T")[0];
-  if (date.value < today) {
-    error.value = "Journey date cannot be in the past";
-    return;
-  }
-
-  emit("search", {
-    origin: origin.value,
-    destination: destination.value,
-    date: date.value,
-    time: time.value,
+const submit = () => {
+  router.push({
+    path: "/results",
+    query: {
+      origin: origin.value,
+      destination: destination.value,
+      date: date.value,
+      time: time.value,
+    },
   });
-}
+};
 </script>
 
 <style scoped>
-.search-container {
+.search-form {
   display: flex;
-  justify-content: center;
-  margin-top: 3rem;
+  flex-direction: column;
+  gap: 1.2rem;
 }
 
-.search-card {
-  background: white;
-  padding: 1.5rem;
-  width: 360px;
-  border-radius: 12px;
-  border: 2px solid #0066cc;
+/* ROW */
+.field-row {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-end;
 }
 
-h2 {
-  color: #0066cc;
-  margin-bottom: 1rem;
-  text-align: center;
+/* FIELD */
+.field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  font-size: 0.75rem;
+  color: #666;
+  margin-bottom: 0.3rem;
 }
 
 input {
-  width: 100%;
-  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
 }
 
-.row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.15);
 }
 
+/* SWAP */
 .swap {
-  background: #ff9933;
   border: none;
-  padding: 0.4rem 0.6rem;
-  border-radius: 6px;
+  background: #eef3ff;
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  font-size: 1.1rem;
   cursor: pointer;
+  transition: transform 0.2s ease;
 }
 
-.search-btn {
+.swap:hover {
+  transform: rotate(180deg);
+}
+
+/* BUTTON */
+.submit-btn {
+  margin-top: 0.6rem;
   background: #0066cc;
   color: white;
-  width: 100%;
-  padding: 0.6rem;
-  border-radius: 8px;
   border: none;
-  margin-top: 0.5rem;
+  border-radius: 12px;
+  padding: 0.85rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.error {
-  color: red;
-  font-size: 0.85rem;
+.submit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 102, 204, 0.3);
 }
 </style>
