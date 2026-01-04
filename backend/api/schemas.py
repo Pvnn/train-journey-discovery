@@ -1,3 +1,8 @@
+"""
+Schema validation for journey search API requests and responses.
+Uses Marshmallow for data validation, serialization, and smart defaults.
+"""
+
 from marshmallow import Schema, fields, validates, validates_schema, ValidationError, post_load
 from datetime import datetime, date, time
 from typing import Dict, Any
@@ -13,10 +18,11 @@ class JourneyRequestSchema(Schema):
     date: Journey date in YYYY-MM-DD format (string)
     departure_time: OPTIONAL - Earliest departure time in HH:MM format (string)
                     If not provided, uses smart defaults:
-                    - If date is TODAY: current time
-                    - If date is FUTURE: 00:00 (start of day)
+                      - If date is TODAY: current time
+                      - If date is FUTURE: 00:00 (start of day)
     max_transfers: Maximum number of transfers allowed (integer, default=4)
   """
+
   source = fields.Str(required=True, error_messages={
     "required": "Source station is required",
     "invalid": "Source must be a string"
@@ -48,7 +54,7 @@ class JourneyRequestSchema(Schema):
   )
 
   @validates('source')
-  def validate_source(self, value: str) -> None:
+  def validate_source(self, value: str, **kwargs) -> None:
     """Validate source station code format."""
     if not value or not value.strip():
       raise ValidationError("Source station cannot be empty")
@@ -56,7 +62,7 @@ class JourneyRequestSchema(Schema):
       raise ValidationError("Source station code must be at least 2 characters")
 
   @validates('destination')
-  def validate_destination(self, value: str) -> None:
+  def validate_destination(self, value: str, **kwargs) -> None:
     """Validate destination station code format."""
     if not value or not value.strip():
       raise ValidationError("Destination station cannot be empty")
@@ -64,7 +70,7 @@ class JourneyRequestSchema(Schema):
       raise ValidationError("Destination station code must be at least 2 characters")
 
   @validates('date')
-  def validate_date(self, value: str) -> None:
+  def validate_date(self, value: str, **kwargs) -> None:
     """
     Validate date format and ensure it's not in the past.
     Expected format: YYYY-MM-DD
@@ -80,7 +86,7 @@ class JourneyRequestSchema(Schema):
       raise ValidationError(f"Date must be today or in the future. Today is {today.strftime('%Y-%m-%d')}")
 
   @validates('departure_time')
-  def validate_departure_time(self, value: str) -> None:
+  def validate_departure_time(self, value: str, **kwargs) -> None:
     """
     Validate time format if provided.
     Expected format: HH:MM (24-hour format)
@@ -103,7 +109,7 @@ class JourneyRequestSchema(Schema):
       raise ValidationError("Departure time must be in HH:MM format (e.g., 14:30, 09:00)")
 
   @validates('max_transfers')
-  def validate_max_transfers(self, value: int) -> None:
+  def validate_max_transfers(self, value: int, **kwargs) -> None:
     """Validate max_transfers is a positive integer."""
     if value < 0:
       raise ValidationError("Max transfers must be a non-negative integer")
@@ -158,27 +164,34 @@ class SegmentSchema(Schema):
   train_name = fields.Str()
   category = fields.Str()
   train_class = fields.Str()
+
   boarding_stop_id = fields.Int()
   boarding_stop_code = fields.Str()
   boarding_stop_name = fields.Str()
+
   alighting_stop_id = fields.Int()
   alighting_stop_code = fields.Str()
   alighting_stop_name = fields.Str()
+
   departure_time = fields.Int()
   departure_day_offset = fields.Int()
   arrival_time = fields.Int()
   arrival_day_offset = fields.Int()
+
   duration = fields.Int()
   comfort_score = fields.Float()
   distance_km = fields.Float()
   fare = fields.Float()
+
   departure_time_formatted = fields.Str()
   arrival_time_formatted = fields.Str()
   duration_formatted = fields.Str()
+
   boarding_station_zone = fields.Str()
   boarding_station_tier = fields.Str()
   alighting_station_zone = fields.Str()
   alighting_station_tier = fields.Str()
+
   transfer_after = fields.Dict(allow_none=True)
 
 
@@ -213,13 +226,13 @@ class JourneyResponseSchema(Schema):
   Schema for journey search response.
 
   Structure:
-    {
-      "journeys": [<list of journey objects>],
-      "metadata": {
-        "query": {<original query parameters>},
-        "results_count": <number of journeys found>
-      }
+  {
+    "journeys": [],
+    "metadata": {
+      "query": {},
+      "results_count": int
     }
+  }
   """
   journeys = fields.List(fields.Nested(JourneySchema))
   metadata = fields.Nested(ResponseMetadataSchema)
@@ -230,13 +243,13 @@ class ErrorResponseSchema(Schema):
   Schema for error responses.
 
   Structure:
-    {
-      "error": {
-        "code": <HTTP status code>,
-        "message": <error message>,
-        "details": <optional detailed error information>
-      }
+  {
+    "error": {
+      "code": int,
+      "message": str,
+      "details": Any (optional)
     }
+  }
   """
   error = fields.Dict(keys=fields.Str(), values=fields.Raw())
 
