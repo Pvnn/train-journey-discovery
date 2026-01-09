@@ -3,10 +3,9 @@
     <!-- FROM / TO -->
     <div class="field-row">
       <div class="field">
-        <label>From</label>
-        <input
+        <StationInput
           v-model="origin"
-          type="text"
+          label="From"
           placeholder="City or station"
           required
         />
@@ -15,10 +14,9 @@
       <button type="button" class="swap" @click="swap">⇄</button>
 
       <div class="field">
-        <label>To</label>
-        <input
+        <StationInput
           v-model="destination"
-          type="text"
+          label="To"
           placeholder="City or station"
           required
         />
@@ -48,11 +46,21 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import StationInput from "./StationInput.vue";
 
 const router = useRouter();
 
-const origin = ref("");
-const destination = ref("");
+/**
+ * origin & destination are OBJECTS now:
+ * {
+ *   stop_id,
+ *   stop_code,
+ *   stop_name
+ * }
+ */
+const origin = ref(null);
+const destination = ref(null);
+
 const date = ref("");
 const time = ref("");
 
@@ -64,11 +72,13 @@ const swap = () => {
 };
 
 const submit = () => {
+  if (!origin.value || !destination.value) return;
+
   router.push({
     path: "/results",
     query: {
-      origin: origin.value,
-      destination: destination.value,
+      origin: origin.value.stop_code,
+      destination: destination.value.stop_code,
       date: date.value,
       time: time.value,
     },
