@@ -8,6 +8,7 @@ backend/.venv/
 backend/venv/
 backend/env/
 **/__pycache__/
+backend/logs/
 **/*.pyc
 
 # Frontend

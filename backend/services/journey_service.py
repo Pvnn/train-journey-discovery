@@ -4,7 +4,8 @@ Coordinates between data loader, MC-RAPTOR algorithm, and response formatting.
 """
 
 from typing import List, Dict, Any
-from backend.services.label_manager import (
+
+from services.label_manager import (
   reconstruct_path,
   enrich_journey
 )
@@ -14,16 +15,13 @@ class JourneyServiceError(Exception):
   """Base exception for journey service errors."""
   pass
 
-
 class StationNotFoundError(JourneyServiceError):
   """Raised when source or destination station is not found."""
   pass
 
-
 class NoRoutesFoundError(JourneyServiceError):
   """Raised when no routes are found between stations."""
   pass
-
 
 class AlgorithmError(JourneyServiceError):
   """Raised when MC-RAPTOR algorithm encounters an error."""
@@ -45,16 +43,16 @@ def search_journeys(
 
   NOTE: This function expects validated inputs from the API schema.
   The schema handles:
-    - departure_time smart defaults (current time for today, 00:00 for future)
-    - All format validations (date, time, station codes)
-    - Source != destination check
+  - departure_time smart defaults (current time for today, 00:00 for future)
+  - All format validations (date, time, station codes)
+  - Source != destination check
 
   Args:
     source: Source station code (e.g., "NDLS", "MAS") - already validated
     destination: Destination station code - already validated
     date: Journey date in YYYY-MM-DD format - already validated
     departure_time: Departure time in HH:MM format - already provided by schema
-                    (either user-provided or auto-filled)
+                   (either user-provided or auto-filled)
     max_transfers: Maximum number of transfers allowed (default: 4)
 
   Returns:
@@ -67,8 +65,8 @@ def search_journeys(
     JourneyServiceError: For other service-level errors
   """
   # Import here to avoid circular dependencies
-  from backend.utils.data_loader import data_loader
-  from backend.services.mc_raptor_mock import MCRaptor
+  from utils.data_loader import data_loader
+  from services.mcraptor_core import MCRaptor
 
   # Step 1: Load all required data
   try:
@@ -78,7 +76,7 @@ def search_journeys(
     train_metadata = data_loader.get_train_metadata()
     station_metadata = data_loader.get_station_metadata()
     stop_routes = data_loader.get_stop_routes()
-    stop_routes_mapping = data_loader.get_stop_routes_mapping() 
+    stop_routes_mapping = data_loader.get_stop_routes_mapping()
   except Exception as e:
     raise JourneyServiceError(f"Failed to load data: {str(e)}")
 
@@ -120,7 +118,7 @@ def search_journeys(
       stop_times_data=stop_times_data,
       stop_routes=stop_routes,
       train_metadata=train_metadata,
-      stop_routes_mapping=stop_routes_mapping,  
+      stop_routes_mapping=stop_routes_mapping,
       query_date=date
     )
   except Exception as e:
@@ -171,7 +169,6 @@ def search_journeys(
       )
 
       enriched_journeys.append(enriched_journey_dict)
-
     except Exception as e:
       # Log the error but continue processing other labels
       # This ensures one bad label doesn't break the entire search
@@ -184,39 +181,99 @@ def search_journeys(
       f"Routes found but failed to construct valid journeys from {source} to {destination}"
     )
 
-  # Step 9: Sort journeys by quality (fewer transfers, less time, higher comfort)
+  # Step 9: Sort journeys by default quality (fewer transfers, less time, higher comfort)
   enriched_journeys = sort_journeys(enriched_journeys)
 
   return enriched_journeys
 
 
-def sort_journeys(journeys: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def sort_journeys(
+  journeys: List[Dict[str, Any]], 
+  sort_by: str = "quality",
+  order: str = "asc"
+) -> List[Dict[str, Any]]:
   """
-  Sort journeys by quality metrics.
+  Sort journeys by specified criteria.
 
-  Priority order:
-    1. Fewer transfers (most important for user experience)
-    2. Less total time (faster is better)
-    3. Higher comfort score (better train quality)
-    4. Lower fare (if available)
+  Supports multiple sorting strategies:
+  - "quality": Multi-key sort (transfers -> time -> comfort -> fare)
+  - "time": Total journey time
+  - "transfers": Number of transfers
+  - "comfort": Comfort score
+  - "fare": Total fare
 
   Args:
     journeys: List of journey dictionaries
+    sort_by: Sort criteria ("quality"|"time"|"transfers"|"comfort"|"fare")
+    order: Sort order ("asc"|"desc")
 
   Returns:
-    Sorted list of journeys (best options first)
+    Sorted list of journeys
   """
-  def journey_sort_key(journey: Dict[str, Any]) -> tuple:
-    """Generate sort key for a journey."""
-    transfers = journey.get('total_transfers', 999)
-    time = journey.get('total_time', 999999)
-    comfort = journey.get('comfort_score', 0.0)
-    fare = journey.get('total_fare', 999999.0)
 
-    # Return tuple: lower is better (except comfort which we negate)
-    return (transfers, time, -comfort, fare)
+  def get_sort_key(journey: Dict[str, Any], criterion: str) -> tuple:
+    """Generate sort key based on criterion."""
 
-  return sorted(journeys, key=journey_sort_key)
+    if criterion == "quality":
+      # Multi-key sorting: transfers, time, -comfort, fare
+      transfers = journey.get('total_transfers', 999)
+      time = journey.get('total_time', 999999)
+      comfort = journey.get('comfort_score', 0.0)
+      fare = journey.get('total_fare', 999999.0)
+      return (transfers, time, -comfort, fare)
+
+    elif criterion == "time":
+      return (journey.get('total_time', 999999),)
+
+    elif criterion == "transfers":
+      # Secondary sort by time when transfers are equal
+      transfers = journey.get('total_transfers', 999)
+      time = journey.get('total_time', 999999)
+      return (transfers, time)
+
+    elif criterion == "comfort":
+      # Higher comfort is better, so negate for ascending sort
+      comfort = journey.get('comfort_score', 0.0)
+      return (-comfort,)
+
+    elif criterion == "fare":
+      return (journey.get('total_fare', 999999.0),)
+
+    else:
+      # Default to quality sorting
+      transfers = journey.get('total_transfers', 999)
+      time = journey.get('total_time', 999999)
+      comfort = journey.get('comfort_score', 0.0)
+      fare = journey.get('total_fare', 999999.0)
+      return (transfers, time, -comfort, fare)
+
+  # Sort journeys
+  sorted_journeys = sorted(
+    journeys, 
+    key=lambda j: get_sort_key(j, sort_by),
+    reverse=(order == "desc")
+  )
+
+  return sorted_journeys
+
+
+def apply_limit(
+  journeys: List[Dict[str, Any]], 
+  limit: int = 10
+) -> List[Dict[str, Any]]:
+  """
+  Apply limit to journey results.
+
+  Args:
+    journeys: List of journey dictionaries
+    limit: Maximum number of journeys to return (default: 10, max: 50)
+
+  Returns:
+    Limited list of journeys
+  """
+  # Ensure limit is within valid range
+  limit = max(1, min(limit, 50))
+  return journeys[:limit]
 
 
 def validate_journey_feasibility(journey: Dict[str, Any]) -> bool:
@@ -283,6 +340,7 @@ def get_journey_summary(journey: Dict[str, Any]) -> Dict[str, Any]:
     Dictionary with summary information (departure, arrival, duration, etc.)
   """
   segments = journey.get('segments', [])
+
   if not segments:
     return {}
 
