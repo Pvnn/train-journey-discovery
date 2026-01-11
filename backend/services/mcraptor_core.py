@@ -1,8 +1,8 @@
 from typing import Set
 from collections import defaultdict
 
-from backend.services.label_manager import LabelManager, Label
-from backend.services.label_manager import filter_routes_by_date
+from services.label_manager import LabelManager, Label
+from services.label_manager import filter_routes_by_date
 
 
 class MCRaptor:

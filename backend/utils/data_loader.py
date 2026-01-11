@@ -22,17 +22,35 @@ class DataLoader:
   once per application lifecycle, improving performance.
   """
 
-  def __init__(self, data_directory: str = "data/processed"):
+  def __init__(self, data_directory: str = None):
     """
     Initialize the data loader and load all JSON files.
 
     Args:
-      data_directory: Path to directory containing JSON data files (default: "data")
+      data_directory: Path to directory containing JSON data files
+                     If None, will look for data/processed/ in parent directory
 
     Raises:
       DataLoaderError: If any required file is missing or cannot be loaded
     """
+    # If no directory specified, look for data in parent directory of backend
+    if data_directory is None:
+      # Get the directory where this file is located (backend/utils/)
+      current_dir = Path(__file__).parent
+      # Go up two levels: utils -> backend -> project_root
+      project_root = current_dir.parent.parent
+      # Look for data/processed in project root
+      data_directory = project_root / "data" / "processed"
+
     self.data_directory = Path(data_directory)
+
+    # Check if directory exists
+    if not self.data_directory.exists():
+      raise DataLoaderError(
+        f"Data directory not found: {self.data_directory}\n"
+        f"Please ensure data files are in the correct location.\n"
+        f"Expected path: {self.data_directory.absolute()}"
+      )
 
     # Data caches - loaded once and reused
     self._stops: Optional[Dict[str, Any]] = None
@@ -65,19 +83,16 @@ class DataLoader:
       with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
       return data
-
     except FileNotFoundError:
       raise DataLoaderError(
         f"Required data file not found: {file_path}\n"
         f"Please ensure all data files are in the '{self.data_directory}' directory."
       )
-
     except json.JSONDecodeError as e:
       raise DataLoaderError(
         f"Failed to parse JSON file {filename}: {str(e)}\n"
         f"Please check the file format."
       )
-
     except Exception as e:
       raise DataLoaderError(
         f"Error loading {filename}: {str(e)}"
@@ -87,15 +102,16 @@ class DataLoader:
     """
     Load all required JSON data files.
 
-    Loads: stops, routes, stop_times, train_metadata, station_metadata, 
+    Loads: stops, routes, stop_times, train_metadata, station_metadata,
            stop_routes, stop_routes_mapping
+
     Prints loading summary with file sizes and record counts.
 
     Raises:
       DataLoaderError: If any file fails to load
     """
     print("Railway Data Loader - Initializing...")
-
+    print(f"Data directory: {self.data_directory.absolute()}")
     loading_summary = []
 
     try:
@@ -103,60 +119,63 @@ class DataLoader:
       print("Loading stops.json...", end=" ")
       self._stops = self._load_json_file("stops.json")
       stops_count = len(self._stops) if isinstance(self._stops, dict) else 0
-      print(f"{stops_count} stops loaded")
+      print(f"✓ {stops_count} stops loaded")
       loading_summary.append(("Stops", stops_count))
 
       # Load routes.json
       print("Loading routes.json...", end=" ")
       self._routes = self._load_json_file("routes.json")
       routes_count = len(self._routes) if isinstance(self._routes, dict) else 0
-      print(f"{routes_count} routes loaded")
+      print(f"✓ {routes_count} routes loaded")
       loading_summary.append(("Routes", routes_count))
 
       # Load stop_times.json
       print("Loading stop_times.json...", end=" ")
       self._stop_times = self._load_json_file("stop_times.json")
       stop_times_count = len(self._stop_times) if isinstance(self._stop_times, list) else 0
-      print(f"{stop_times_count} stop times loaded")
+      print(f"✓ {stop_times_count} stop times loaded")
       loading_summary.append(("Stop Times", stop_times_count))
 
       # Load train_metadata.json
       print("Loading train_metadata.json...", end=" ")
       self._train_metadata = self._load_json_file("train_metadata.json")
       train_meta_count = len(self._train_metadata) if isinstance(self._train_metadata, dict) else 0
-      print(f"{train_meta_count} trains loaded")
+      print(f"✓ {train_meta_count} trains loaded")
       loading_summary.append(("Train Metadata", train_meta_count))
 
       # Load station_metadata.json
       print("Loading station_metadata.json...", end=" ")
       self._station_metadata = self._load_json_file("station_metadata.json")
       station_meta_count = len(self._station_metadata) if isinstance(self._station_metadata, dict) else 0
-      print(f"{station_meta_count} stations loaded")
+      print(f"✓ {station_meta_count} stations loaded")
       loading_summary.append(("Station Metadata", station_meta_count))
 
       # Load stop_routes.json
       print("Loading stop_routes.json...", end=" ")
       self._stop_routes = self._load_json_file("stop_routes.json")
       stop_routes_count = len(self._stop_routes) if isinstance(self._stop_routes, dict) else 0
-      print(f"{stop_routes_count} stop-route mappings loaded")
+      print(f"✓ {stop_routes_count} stop-route mappings loaded")
       loading_summary.append(("Stop Routes", stop_routes_count))
 
       # Load stop_routes_mapping.json
       print("Loading stop_routes_mapping.json...", end=" ")
       self._stop_routes_mapping = self._load_json_file("stop_routes_mapping.json")
       stop_routes_mapping_count = len(self._stop_routes_mapping) if isinstance(self._stop_routes_mapping, dict) else 0
-      print(f"{stop_routes_mapping_count} route mappings loaded")
+      print(f"✓ {stop_routes_mapping_count} route mappings loaded")
       loading_summary.append(("Stop Routes Mapping", stop_routes_mapping_count))
 
     except DataLoaderError as e:
-      print(f"\nData loading failed!")
+      print(f"\n✗ Data loading failed!")
       raise
 
     # Print summary
+    print("\n" + "="*60)
     print("Loading Summary:")
     for name, count in loading_summary:
       print(f"  {name:<25} : {count:>10,} records")
-    print("All data loaded successfully!")
+    print("="*60)
+    print("✓ All data loaded successfully!")
+    print()
 
   def get_stops(self) -> Dict[str, Any]:
     """
@@ -309,5 +328,4 @@ try:
   data_loader = DataLoader()
 except DataLoaderError as e:
   print(f"Warning: Failed to initialize data loader: {e}")
-  print("Data will need to be loaded manually or data files are missing.")
   data_loader = None

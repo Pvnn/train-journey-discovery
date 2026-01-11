@@ -1,0 +1,527 @@
+openapi: 3.0.0
+info:
+  title: Train Journey Discovery API
+  description: |
+    API for searching multi-hop train journeys across Indian Railways network with 
+    transfer optimization, station lookup, and route planning.
+
+    ## Features
+    - Multi-hop journey search with MC-RAPTOR algorithm
+    - Advanced sorting (time, transfers, comfort, fare)
+    - Station search and lookup
+    - Transfer time validation
+    - Smart departure time defaults
+
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000
+    description: Development server
+  - url: http://localhost:5000/api
+    description: API base path
+
+tags:
+  - name: Journey Search
+    description: Search and discover train journeys
+  - name: Station Lookup
+    description: Search and retrieve station information
+  - name: Health
+    description: API health check
+
+paths:
+  /api/search:
+    post:
+      tags:
+        - Journey Search
+      summary: Search for train journeys
+      description: |
+        Search for optimal train journeys between two stations with optional 
+        sorting and filtering. Returns journeys sorted by quality (default) or 
+        custom criteria.
+
+      parameters:
+        - name: sort_by
+          in: query
+          description: Sort criteria
+          required: false
+          schema:
+            type: string
+            enum: [quality, time, transfers, comfort, fare]
+            default: quality
+        - name: order
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: limit
+          in: query
+          description: Maximum number of results (1-50)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JourneyRequest'
+            examples:
+              basic:
+                summary: Basic search
+                value:
+                  source: "NDLS"
+                  destination: "MAS"
+                  date: "2026-01-20"
+              with_time:
+                summary: Search with departure time
+                value:
+                  source: "NDLS"
+                  destination: "MAS"
+                  date: "2026-01-20"
+                  departure_time: "14:30"
+                  max_transfers: 2
+
+      responses:
+        '200':
+          description: Successful search
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JourneyResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: 400
+                  message: "Invalid request data"
+                  details:
+                    destination: ["Destination station is required"]
+        '404':
+          description: Station or routes not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: 404
+                  message: "Station 'INVALID' not found"
+                  details:
+                    error_type: "StationNotFoundError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/stations/search:
+    get:
+      tags:
+        - Station Lookup
+      summary: Search for stations
+      description: |
+        Search stations by name or code. Returns maximum 10 results.
+        - Code matching: Prefix match (case-insensitive)
+        - Name matching: Partial match (case-insensitive)
+        - Exact code matches appear first
+
+      parameters:
+        - name: q
+          in: query
+          description: Search term (minimum 2 characters)
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          example: "delhi"
+
+      responses:
+        '200':
+          description: Successful search
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+        '400':
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/stations/{code}:
+    get:
+      tags:
+        - Station Lookup
+      summary: Get station details
+      description: Get detailed information for a specific station by code
+
+      parameters:
+        - name: code
+          in: path
+          description: Station code (e.g., "NDLS", "MAS")
+          required: true
+          schema:
+            type: string
+          example: "NDLS"
+
+      responses:
+        '200':
+          description: Station found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StationDetail'
+        '404':
+          description: Station not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/stations:
+    get:
+      tags:
+        - Station Lookup
+      summary: Get all stations
+      description: |
+        Get all stations with optional zone filtering. Response is cached for 
+        fast performance.
+
+      parameters:
+        - name: zone
+          in: query
+          description: Filter by railway zone
+          required: false
+          schema:
+            type: string
+          example: "WR"
+
+      responses:
+        '200':
+          description: List of stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+
+  /api/health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check API health status
+
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  service:
+                    type: string
+                    example: "Journey Search API"
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+components:
+  schemas:
+    JourneyRequest:
+      type: object
+      required:
+        - source
+        - destination
+        - date
+      properties:
+        source:
+          type: string
+          minLength: 2
+          description: Source station code
+          example: "NDLS"
+        destination:
+          type: string
+          minLength: 2
+          description: Destination station code
+          example: "MAS"
+        date:
+          type: string
+          format: date
+          description: Journey date (YYYY-MM-DD, today or future)
+          example: "2026-01-20"
+        departure_time:
+          type: string
+          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Departure time (HH:MM, 24-hour format)
+          example: "14:30"
+        max_transfers:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 4
+          description: Maximum number of transfers allowed
+          example: 2
+
+    JourneySegment:
+      type: object
+      properties:
+        route_id:
+          type: string
+          example: "12301"
+        train_number:
+          type: string
+          example: "12301"
+        train_name:
+          type: string
+          example: "Rajdhani Express"
+        category:
+          type: string
+          example: "Rajdhani"
+        train_class:
+          type: string
+          example: "Premium"
+        boarding_stop_id:
+          type: integer
+          example: 1
+        boarding_stop_code:
+          type: string
+          example: "NDLS"
+        boarding_stop_name:
+          type: string
+          example: "New Delhi"
+        alighting_stop_id:
+          type: integer
+          example: 25
+        alighting_stop_code:
+          type: string
+          example: "BPL"
+        alighting_stop_name:
+          type: string
+          example: "Bhopal Junction"
+        departure_time:
+          type: integer
+          description: Departure time in minutes from midnight
+          example: 900
+        departure_day_offset:
+          type: integer
+          example: 0
+        arrival_time:
+          type: integer
+          description: Arrival time in minutes from midnight
+          example: 1320
+        arrival_day_offset:
+          type: integer
+          example: 0
+        duration:
+          type: integer
+          description: Segment duration in minutes
+          example: 420
+        comfort_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 5.0
+          example: 4.5
+        distance_km:
+          type: number
+          format: float
+          example: 705.0
+        fare:
+          type: number
+          format: float
+          example: 1500.0
+        departure_time_formatted:
+          type: string
+          example: "15:00"
+        arrival_time_formatted:
+          type: string
+          example: "22:00"
+        duration_formatted:
+          type: string
+          example: "7h 0m"
+        boarding_station_zone:
+          type: string
+          example: "NR"
+        boarding_station_tier:
+          type: string
+          example: "A1"
+        alighting_station_zone:
+          type: string
+          example: "WCR"
+        alighting_station_tier:
+          type: string
+          example: "A"
+        transfer_after:
+          type: object
+          nullable: true
+          properties:
+            transfer_at_stop_code:
+              type: string
+            transfer_at_stop_name:
+              type: string
+            next_train_number:
+              type: string
+            next_train_name:
+              type: string
+            transfer_time_minutes:
+              type: integer
+            min_transfer_time:
+              type: integer
+            buffer_sufficient:
+              type: boolean
+
+    Journey:
+      type: object
+      properties:
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/JourneySegment'
+        total_time:
+          type: integer
+          description: Total journey time in minutes
+          example: 1200
+        total_fare:
+          type: number
+          format: float
+          example: 2850.0
+        total_transfers:
+          type: integer
+          example: 1
+        comfort_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 5.0
+          example: 4.2
+        num_segments:
+          type: integer
+          example: 2
+
+    JourneyResponse:
+      type: object
+      properties:
+        journeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/Journey'
+        metadata:
+          type: object
+          properties:
+            query:
+              type: object
+              properties:
+                source:
+                  type: string
+                destination:
+                  type: string
+                date:
+                  type: string
+                departure_time:
+                  type: string
+                max_transfers:
+                  type: integer
+                time_source:
+                  type: string
+            results_count:
+              type: integer
+              description: Number of journeys returned
+            total_found:
+              type: integer
+              description: Total journeys found before limit
+            sort_by:
+              type: string
+            order:
+              type: string
+            limit:
+              type: integer
+            returned_count:
+              type: integer
+
+    Station:
+      type: object
+      properties:
+        stop_id:
+          type: integer
+          example: 1
+        stop_code:
+          type: string
+          example: "NDLS"
+        stop_name:
+          type: string
+          example: "New Delhi"
+        zone:
+          type: string
+          example: "NR"
+
+    StationDetail:
+      type: object
+      properties:
+        stop_id:
+          type: integer
+          example: 1
+        stop_code:
+          type: string
+          example: "NDLS"
+        stop_name:
+          type: string
+          example: "New Delhi"
+        zone:
+          type: string
+          example: "NR"
+        tier:
+          type: string
+          example: "A1"
+        category:
+          type: string
+          example: "NSG-1"
+        min_transfer_time:
+          type: integer
+          description: Minimum transfer time in minutes
+          example: 10
+        routes_serving:
+          type: integer
+          description: Number of routes serving this station
+          example: 150
+        route_ids:
+          type: array
+          items:
+            type: string
+          example: ["12301", "12302", "12951"]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 400
+            message:
+              type: string
+              example: "Invalid request data"
+            details:
+              type: object
+              additionalProperties: true
