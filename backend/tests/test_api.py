@@ -140,7 +140,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "NDLS",
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026-01-20"
       },
       timeout=30
@@ -175,7 +175,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "NDLS",
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026-01-20",
         "departure_time": "14:30"
       },
@@ -202,7 +202,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "NDLS",
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026-01-20",
         "max_transfers": 2
       },
@@ -228,7 +228,7 @@ def test_task1_journey_search():
     response = requests.post(
       f"{API_BASE}/search",
       json={
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026-01-20"
       },
       timeout=10
@@ -276,7 +276,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "NDLS",
-        "destination": "MAS"
+        "destination": "JP"
       },
       timeout=10
     )
@@ -298,7 +298,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "NDLS",
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026/01/20"  # Wrong format
       },
       timeout=10
@@ -321,7 +321,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "NDLS",
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026-01-20",
         "departure_time": "25:00"  # Invalid time
       },
@@ -345,7 +345,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "INVALID",
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026-01-20"
       },
       timeout=10
@@ -370,7 +370,7 @@ def test_task1_journey_search():
       f"{API_BASE}/search",
       json={
         "source": "NDLS",
-        "destination": "MAS",
+        "destination": "JP",
         "date": "2026-01-20"
       },
       timeout=30
@@ -420,7 +420,7 @@ def test_task2_sorting_filtering():
 
   base_request = {
     "source": "NDLS",
-    "destination": "MAS",
+    "destination": "JP",
     "date": "2026-01-20"
   }
 
@@ -873,7 +873,7 @@ def test_task3_station_lookup():
   print_test("3.9: Verify station detail response structure")
   try:
     response = requests.get(
-      f"{API_BASE}/stations/MAS",
+      f"{API_BASE}/stations/JP",
       timeout=10
     )
 
@@ -888,7 +888,7 @@ def test_task3_station_lookup():
       print_pass("All required fields present")
       result.add_pass()
     elif response.status_code == 404:
-      print_info("Station MAS not found - skipping structure test")
+      print_info("Station JP not found - skipping structure test")
       result.add_skip()
     else:
       print_fail(f"Status: {response.status_code}")
